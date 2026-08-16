@@ -5,11 +5,17 @@ import { SupportedLanguages, SupportedSystems } from "types";
 // &Reference[...] and inline rolls [[...]]. Sending these to a language model
 // invites it to translate the arguments or reflow the brackets, which turns a
 // working link or roll into plain broken text.
+//
+// Only the reference is masked. A trailing {label} is display text and is
+// deliberately left visible so it gets translated with the rest of the
+// sentence, which is what a reader of the target language expects.
+//
+// The leading & is matched in its HTML-escaped form too: Foundry stores the
+// field as HTML, so &Reference[...] is held as &amp;Reference[...].
 // The inner alternation allows one level of nesting, which real syntax uses:
 // @Damage[2d6[fire]] would otherwise be cut at the first bracket and leave a
 // stray "]" outside the token for the model to move or drop.
-const ENRICHER_PATTERN =
-  /(?:[@&][A-Za-z]+\[(?:[^[\]]|\[[^[\]]*\])*\](?:\{[^}]*\})?)|(?:\[\[(?:[^[\]]|\[[^[\]]*\])*\]\])/g;
+const ENRICHER_PATTERN = /(?:(?:&amp;|[@&])[A-Za-z]+\[(?:[^[\]]|\[[^[\]]*\])*\])|(?:\[\[(?:[^[\]]|\[[^[\]]*\])*\]\])/g;
 
 // Deliberately plain alphanumeric: there is no punctuation for the model to
 // reformat, and it is unlikely to be mistaken for a translatable word.
