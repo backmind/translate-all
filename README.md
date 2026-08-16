@@ -89,6 +89,7 @@ In module settings, scroll to the TTS section and:
 
 ## Options
 
+- Foundry links and rolls (`@UUID`, `@Check`, `@Damage`, `&Reference`, `[[/r ...]]`) are swapped for placeholders before the text is sent for translation and put back afterwards, so they come through untouched. The visible label of a link is not translated. If the model loses one, a warning tells you how many went missing.
 - If you would like to use the default prompt, leave the prompt file selection empty.
 
 ---
