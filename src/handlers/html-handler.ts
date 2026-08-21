@@ -13,6 +13,11 @@ export class HTMLHandler {
     // never see the button rather than seeing it fail.
     if (!TranslateAllSettingHandler.canUserTranslate()) return;
 
+    // A journal page renders twice: read-only inside its entry, and again in
+    // the page editor. Only the editor is offered the button, so the control
+    // sits in the same place for every document type.
+    if (HTMLHandler.isReadOnlyView(app)) return;
+
     const root = HTMLHandler.resolveRootElement(app, html);
     if (!root) return;
 
@@ -62,6 +67,21 @@ export class HTMLHandler {
   private static hasHTMLElementAtZeroIndex(value: unknown): value is { 0: HTMLElement } {
     if (!value || typeof value !== "object") return false;
     return Reflect.get(value, 0) instanceof HTMLElement;
+  }
+
+  // A sheet rendered for reading only: a journal page embedded in its entry is
+  // rendered in view mode, without a window frame, and an older page sheet is
+  // rendered as not editable.
+  private static isReadOnlyView(app: SheetLikeApp): boolean {
+    const options = app.options;
+    if (!options) return false;
+
+    if (Reflect.get(options, "mode") === "view") return true;
+    if (Reflect.get(options, "editable") === false) return true;
+
+    const windowOptions = Reflect.get(options, "window");
+    if (!windowOptions || typeof windowOptions !== "object") return false;
+    return Reflect.get(windowOptions, "frame") === false;
   }
 
   private static resolveHeaderContainer(root: HTMLElement): HTMLElement | null {
