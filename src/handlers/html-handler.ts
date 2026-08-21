@@ -209,6 +209,11 @@ export class HTMLHandler {
   }
 
   private static async updateDescription(app: SheetLikeApp, translation: string, path: string): Promise<void> {
+    // The sheet is closed before the document is written, not after. Foundry
+    // saves an open editor while the sheet closes, and that save carries the
+    // pre-translation text, so writing first would put the original back.
+    await HTMLHandler.closeSheet(app);
+
     const system = TranslateAllSettingHandler.getSetting("translate-all", "targetSystem");
     if (system === SupportedSystems.DND5E) {
       await this.update5eDescription(app, translation, path);
@@ -217,12 +222,18 @@ export class HTMLHandler {
     }
   }
 
+  private static async closeSheet(app: SheetLikeApp): Promise<void> {
+    try {
+      await app.close();
+    } catch (error) {
+      ui?.notifications?.warn(`Could not close the sheet before saving the translation: ${error}`);
+    }
+  }
+
   private static async update5eDescription(app: SheetLikeApp, translation: string, path: string): Promise<void> {
     try {
       const item = app.document ?? app.object;
       await item?.update?.({ [path]: translation });
-      app.render(true);
-      app.close();
     } catch (error) {
       ui?.notifications?.error(`Error updating item description: ${error}`);
     }
@@ -238,8 +249,5 @@ export class HTMLHandler {
     } catch (error) {
       ui?.notifications?.error(`Error updating item description: ${error}`);
     }
-
-    item?.render?.(true);
-    await item?.sheet?.close?.();
   }
 }
