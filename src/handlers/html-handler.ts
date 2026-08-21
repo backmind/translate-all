@@ -21,6 +21,10 @@ export class HTMLHandler {
     const root = HTMLHandler.resolveRootElement(app, html);
     if (!root) return;
 
+    // Nothing stored yet and no editor to read from means there is nothing to
+    // translate, so the button is not worth showing.
+    if (!description && !HTMLHandler.resolveEditorElement(root, path)) return;
+
     const header = HTMLHandler.resolveHeaderContainer(root);
     if (!header) return;
 
@@ -35,17 +39,25 @@ export class HTMLHandler {
     btn.addEventListener("click", async () => {
       if (btn.dataset.loading === "true") return;
 
+      // Read at click time rather than at injection time: the editor may have
+      // been opened, or its contents changed, since the button was added.
+      const source = HTMLHandler.readEditorValue(root, path) ?? description;
+      if (!source) {
+        ui?.notifications?.warn("There is nothing to translate yet.");
+        return;
+      }
+
       HTMLHandler.setButtonLoadingState(btn, true);
 
       try {
-        const translated = await Translator.translate(description);
+        const translated = await Translator.translate(source);
         if (!translated) {
           ui?.notifications?.error("Translation failed or returned empty.");
           return;
         }
 
         const mode = TranslateAllSettingHandler.getSetting("translate-all", "outputMode");
-        await HTMLHandler.persistTranslation(app, mode, translated, description, path);
+        await HTMLHandler.persistTranslation(app, mode, translated, source, path);
       } finally {
         HTMLHandler.setButtonLoadingState(btn, false);
       }
@@ -67,6 +79,25 @@ export class HTMLHandler {
   private static hasHTMLElementAtZeroIndex(value: unknown): value is { 0: HTMLElement } {
     if (!value || typeof value !== "object") return false;
     return Reflect.get(value, 0) instanceof HTMLElement;
+  }
+
+  // The form control the sheet uses to edit the field being translated, if the
+  // sheet exposes one. Foundry names it after the document path, so the same
+  // lookup covers a journal page editor and an item description editor.
+  private static resolveEditorElement(root: HTMLElement, path: string): Element | null {
+    return root.querySelector(`[name="${path}"]`);
+  }
+
+  // Text being edited is not yet text stored in the document, and the button
+  // now lives inside the editing view, so the editor wins over the document.
+  private static readEditorValue(root: HTMLElement, path: string): string | undefined {
+    const editor = HTMLHandler.resolveEditorElement(root, path);
+    if (!editor) return undefined;
+
+    const value = Reflect.get(editor, "value");
+    if (typeof value !== "string" || !value.trim()) return undefined;
+
+    return value;
   }
 
   // A sheet rendered for reading only: a journal page embedded in its entry is
