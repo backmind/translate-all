@@ -267,7 +267,11 @@ export class TranslateAllSettingHandler {
     if (!root) return;
 
     const select = root.querySelector<HTMLSelectElement>('select[name="translate-all.targetModel"]');
-    if (!select || select.parentElement?.querySelector("button.translate-all-refresh-models")) return;
+    if (!select) return;
+
+    TranslateAllSettingHandler.ensureStoredModelIsSelectable(select);
+
+    if (select.parentElement?.querySelector("button.translate-all-refresh-models")) return;
 
     const button = document.createElement("button");
     // Not a submit button: it must not save and close the settings form.
@@ -303,6 +307,26 @@ export class TranslateAllSettingHandler {
     });
 
     select.after(button);
+  }
+
+  // The dropdown is built from choices frozen when the setting was registered,
+  // so a world that loaded while the endpoint was unreachable renders it with
+  // no options at all and a value of "". Submitting the form then writes that
+  // empty value over the stored model, and every later request goes out with
+  // an empty model. Putting the stored value back as an option means the form
+  // cannot destroy what it failed to display.
+  private static ensureStoredModelIsSelectable(select: HTMLSelectElement): void {
+    const stored = TranslateAllSettingHandler.getSetting("translate-all", "targetModel");
+    if (!stored) return;
+
+    if (!Array.from(select.options).some((option) => option.value === stored)) {
+      const option = document.createElement("option");
+      option.value = stored;
+      option.textContent = stored;
+      select.append(option);
+    }
+
+    select.value = stored;
   }
 
   private static readFieldValue(root: HTMLElement, name: string): string | undefined {
