@@ -41,7 +41,8 @@ export class HTMLHandler {
 
       // Read at click time rather than at injection time: the editor may have
       // been opened, or its contents changed, since the button was added.
-      const source = HTMLHandler.readEditorValue(root, path) ?? description;
+      const editorValue = HTMLHandler.readEditorValue(root, path);
+      const source = editorValue ?? description;
       if (!source) {
         ui?.notifications?.warn("There is nothing to translate yet.");
         return;
@@ -57,6 +58,17 @@ export class HTMLHandler {
         }
 
         const mode = TranslateAllSettingHandler.getSetting("translate-all", "outputMode");
+
+        // In duplicate mode the copy takes the translation and the original
+        // keeps the source, but text read from an open editor is not stored
+        // anywhere yet. It gets the same implicit save the other modes give
+        // it by overwriting the field; without it, the source of the
+        // translation would exist in no document at all.
+        if (mode === OutputModes.DUPLICATE && editorValue !== undefined) {
+          const saved = await HTMLHandler.saveEditorSource(app, editorValue, path);
+          if (!saved) return;
+        }
+
         await HTMLHandler.persistTranslation(app, mode, translated, source, path);
       } finally {
         HTMLHandler.setButtonLoadingState(btn, false);
@@ -154,6 +166,20 @@ export class HTMLHandler {
     `;
 
     document.head.append(style);
+  }
+
+  // Writes the editor's text to the source document without closing the
+  // sheet. Returns false when the write fails, so the caller can stop before
+  // a step that assumes the source text is safely stored.
+  private static async saveEditorSource(app: SheetLikeApp, source: string, path: string): Promise<boolean> {
+    try {
+      const document = app.document ?? app.object;
+      await document?.update?.({ [path]: source });
+      return true;
+    } catch (error) {
+      ui?.notifications?.error(`Error saving the edited text before duplicating: ${error}`);
+      return false;
+    }
   }
 
   // Single entry point for persisting a translation. Every output mode goes
